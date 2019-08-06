@@ -1,0 +1,110 @@
+- hosts: all
+  become: true
+  vars:
+    mysql_root_password: Tin#mysql42tin
+    dir: /var/www/ghost
+  tasks:
+    #upgrades
+    - name: Update all packages to the latest version
+      apt:
+        upgrade: dist
+    # Nginx
+    - name: Nginx | install
+      apt:
+        name: nginx
+        state: latest
+        update_cache: yes
+    #mysql
+    - name: Install mysql-server
+      apt:
+        name: mysql-server
+        state: present
+    #PyMySQL
+    - name: pymsqli install
+      apt:
+        name: python-pip
+        state: present
+    - name: install setuptools
+      apt:
+        name: '{{ packages }}'
+        state: present
+      vars:
+        packages:
+          - python-setuptools
+          - python-dev
+          - build-essential
+    - name: pip
+      pip:
+        name: PyMySQL
+
+    - name: Set root user password
+  # If .my.cnf already exists, this will cause an mysql-root-password update.
+      mysql_user:
+        name: root
+        password: "{{ mysql_root_password}}"
+        check_implicit_admin: true
+    - name: Create .my.cnf
+      template:
+        src: "client.my.cnf.j2"
+        dest: "/root/.my.cnf"
+        owner: root
+        group: root
+        mode: 0600
+    - name: Install nodejs
+      shell: curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -; sudo apt-get install -y nodejs
+    #ghostcli
+    - name: Install ghost-cli
+      shell: npm i -g ghost-cli
+    #ghost install process
+    - name: Create ghost directory
+      shell: mkdir -p '{{ dir }}'
+    - name: Changes permissions
+      file:
+        path: '{{ dir }}'
+        state: directory 
+        owner: ubuntu
+        group: ubuntu
+        mode:  '775'
+        recurse: yes
+     #ghost install
+    - name: installing pexpect
+      pip:
+        name: pexpect
+    - name: finally installing ghostjs
+      become: false
+      ignore_errors: true
+      no_log: true
+      shell:  ghost install
+      args:
+        chdir: '{{ dir }}'
+    # ghost config
+    - name: create json file
+      file:
+        path: "/var/www/ghost/config.production.json"
+        state: touch 
+    - name:  config.production.json - contents
+      copy:
+       src: "config.production.json"
+       dest: "/var/www/ghost/config.production.json"
+    - name: set file permissions
+      file:
+       path: "/var/www/ghost/config.production.json"
+       state: file
+       owner: ubuntu
+       group: ubuntu
+       mode: '664'   
+    - name: setup systemd
+      become: false
+      shell: ghost setup systemd
+      args:
+       chdir: '{{ dir }}'
+      tags:
+        - system
+    # ghost start
+    - name: ghost start
+      shell: ghost start
+      args:
+        chdir: '{{ dir }}'
+       
+    
+            
