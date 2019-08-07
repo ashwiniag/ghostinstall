@@ -1,7 +1,7 @@
 - hosts: all
   become: true
   vars:
-    mysql_root_password: Tin#mysql42tin
+    mysql_root_password: password
     dir: /var/www/ghost
   tasks:
     #upgrades
